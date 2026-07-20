@@ -7,8 +7,9 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
       SERVICE_FQDN_RABBITMQ_15672: api-rabbitmq.ahmad-alkasem.me
+    expose:
+      - "15672"
     ports:
-      - "5672:5672"
       - "15672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
