@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Product Sync Dashboard</title>
+<style>
+  :root {
+    --bg: #eef1f6;
+    --panel: #ffffff;
+    --ink: #1b2333;
+    --muted: #6b7488;
+    --line: #e2e6ef;
+    --brand: #4f46e5;
+    --brand-dark: #3f38c7;
+    --ok: #0f9d6a;
+    --ok-bg: #e5f6ee;
+    --pending: #b7791f;
+    --pending-bg: #fbf1dc;
+    --fail: #c2560f;
+    --fail-bg: #fbe9dd;
+    --dead: #c02a3b;
+    --dead-bg: #fbe0e3;
+    --shadow: 0 8px 24px rgba(27, 35, 51, .08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  code, .mono { font-family: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace; }
+  header {
+    background: linear-gradient(120deg, #4f46e5, #6d5ef0 55%, #7c74f5);
+    color: #fff;
+    padding: 22px 28px;
+    box-shadow: var(--shadow);
+  }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: .2px; }
+  header p { margin: 4px 0 0; color: #dcd9fb; font-size: 13px; }
+  .status-dots { display: flex; gap: 18px; margin-top: 14px; flex-wrap: wrap; }
+  .dot { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: #e8e6ff; }
+  .dot i { width: 10px; height: 10px; border-radius: 50%; background: #b9b4f2; box-shadow: 0 0 0 3px rgba(255,255,255,.12); }
+  .dot.up i { background: #4ade80; }
+  .dot.down i { background: #f87171; }
+  main { max-width: 1240px; margin: 0 auto; padding: 22px; }
+  .config {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; display: flex; gap: 12px; align-items: end; flex-wrap: wrap;
+    box-shadow: var(--shadow); margin-bottom: 20px;
+  }
+  .config .field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 240px; }
+  label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  input, textarea {
+    font: inherit; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px;
+    background: #fbfcfe; color: var(--ink); outline: none; width: 100%;
+  }
+  input:focus, textarea:focus { border-color: var(--brand); background: #fff; box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
+  .grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 20px; align-items: start; }
+  @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .card + .card { margin-top: 20px; }
+  .card-head { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .card-head h2 { margin: 0; font-size: 15px; }
+  .card-head .sub { color: var(--muted); font-size: 12px; font-weight: 500; }
+  .card-body { padding: 16px 18px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid .wide { grid-column: 1 / -1; }
+  .row-actions { display: flex; gap: 10px; margin-top: 14px; align-items: center; }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; border: 1px solid transparent;
+    border-radius: 9px; padding: 9px 16px; transition: .15s;
+  }
+  .btn-primary { background: var(--brand); color: #fff; }
+  .btn-primary:hover { background: var(--brand-dark); }
+  .btn-ghost { background: #fff; color: var(--ink); border-color: var(--line); }
+  .btn-ghost:hover { border-color: #c7cede; background: #f6f8fc; }
+  .btn-sm { padding: 5px 10px; font-size: 12.5px; border-radius: 7px; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); cursor: pointer; user-select: none; }
+  .switch input { width: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; }
+  tbody tr:hover { background: #f7f9fc; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .pill.Processed { color: var(--ok); background: var(--ok-bg); }
+  .pill.Pending { color: var(--pending); background: var(--pending-bg); }
+  .pill.Failed { color: var(--fail); background: var(--fail-bg); }
+  .pill.DeadLettered { color: var(--dead); background: var(--dead-bg); }
+  .empty { text-align: center; color: var(--muted); padding: 26px 10px; font-size: 13px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 10px 18px 0; }
+  .legend span { font-size: 11.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+  .legend b { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .icon-btn { background: none; border: none; padding: 4px 7px; border-radius: 6px; font-size: 15px; cursor: pointer; }
+  .icon-btn:hover { background: #eef0f7; }
+  .toasts { position: fixed; bottom: 18px; right: 18px; display: flex; flex-direction: column; gap: 10px; z-index: 50; }
+  .toast { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 10px; padding: 11px 14px; box-shadow: var(--shadow); min-width: 240px; max-width: 360px; animation: slide .2s ease; }
+  .toast.ok { border-left-color: var(--ok); }
+  .toast.err { border-left-color: var(--dead); }
+  .toast .t { font-weight: 700; font-size: 13px; }
+  .toast .m { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  @keyframes slide { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .hint { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Product Sync Dashboard</h1>
+  <p>Run CRUD on Service A and watch the replica and sync status propagate to Service B over RabbitMQ</p>
+  <div class="status-dots">
+    <span class="dot" id="dotA"><i></i> Service A</span>
+    <span class="dot" id="dotB"><i></i> Service B</span>
+  </div>
+</header>
+
+<main>
+  <div class="config">
+    <div class="field">
+      <label>Service A URL (source)</label>
+      <input id="baseA" class="mono" placeholder="https://api-servicea.example" />
+    </div>
+    <div class="field">
+      <label>Service B URL (replica)</label>
+      <input id="baseB" class="mono" placeholder="https://api-serviceb.example" />
+    </div>
+    <button class="btn-primary" id="saveCfg">Save</button>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <div class="card-head">
+        <div><h2>Service A — Source</h2><div class="sub">Create / update / delete products</div></div>
+        <button class="btn-ghost btn-sm" id="refreshA">Refresh</button>
+      </div>
+      <div class="card-body">
+        <form id="form">
+          <input type="hidden" id="editId" />
+          <div class="form-grid">
+            <div>
+              <label>Name</label>
+              <input id="name" required maxlength="200" />
+            </div>
+            <div>
+              <label>SKU</label>
+              <input id="sku" class="mono" required maxlength="64" />
+            </div>
+            <div>
+              <label>Price</label>
+              <input id="price" type="number" step="0.01" min="0" value="0" required />
+            </div>
+            <div>
+              <label>Stock</label>
+              <input id="stock" type="number" min="0" value="0" required />
+            </div>
+            <div class="wide">
+              <label>Description</label>
+              <textarea id="description" rows="2" maxlength="2000"></textarea>
+            </div>
+          </div>
+          <div class="row-actions">
+            <button type="submit" class="btn-primary" id="submitBtn">Add product</button>
+            <button type="button" class="btn-ghost" id="cancelEdit" style="display:none">Cancel</button>
+          </div>
+        </form>
+        <div class="hint">After a create or update, the change appears in Service B within a few seconds via sync.</div>
+        <div style="overflow:auto; margin-top:14px">
+          <table>
+            <thead><tr><th>Name</th><th>SKU</th><th>Price</th><th>Stock</th><th>Version</th><th>Actions</th></tr></thead>
+            <tbody id="listA"><tr><td colspan="6" class="empty">No data yet</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <div>
+      <section class="card">
+        <div class="card-head">
+          <div><h2>Service B — Replica</h2><div class="sub">read-only</div></div>
+          <label class="switch"><input type="checkbox" id="auto" checked /> Auto refresh</label>
+        </div>
+        <div class="card-body" style="overflow:auto">
+          <table>
+            <thead><tr><th>Name</th><th>SKU</th><th>Price</th><th>Stock</th><th>Version</th><th>Last synced</th></tr></thead>
+            <tbody id="listB"><tr><td colspan="6" class="empty">No data yet</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><div><h2>Sync Status</h2><div class="sub">per product</div></div></div>
+        <div class="legend">
+          <span><b style="background:var(--ok)"></b> Processed</span>
+          <span><b style="background:var(--pending)"></b> Pending</span>
+          <span><b style="background:var(--fail)"></b> Failed</span>
+          <span><b style="background:var(--dead)"></b> DeadLettered</span>
+        </div>
+        <div class="card-body" style="overflow:auto">
+          <table>
+            <thead><tr><th>Aggregate</th><th>Status</th><th>Version</th><th>Attempts</th><th>Updated</th></tr></thead>
+            <tbody id="listS"><tr><td colspan="5" class="empty">No data yet</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const store = {
+    get baseA() { return localStorage.getItem("baseA") || defaultA(); },
+    get baseB() { return localStorage.getItem("baseB") || defaultB(); },
+    set baseA(v) { localStorage.setItem("baseA", v); },
+    set baseB(v) { localStorage.setItem("baseB", v); }
+  };
+  function defaultA() {
+    if (location.protocol.startsWith("http")) return location.origin;
+    return "http://localhost:5001";
+  }
+  function defaultB() {
+    if (location.protocol.startsWith("http") && location.origin.includes("servicea"))
+      return location.origin.replace("servicea", "serviceb");
+    return "http://localhost:5002";
+  }
+  const trim = v => (v || "").replace(/\/+$/, "");
+
+  function toast(title, msg, kind) {
+    const el = document.createElement("div");
+    el.className = "toast " + (kind || "");
+    el.innerHTML = `<div class="t"></div><div class="m"></div>`;
+    el.querySelector(".t").textContent = title;
+    el.querySelector(".m").textContent = msg || "";
+    $("toasts").appendChild(el);
+    setTimeout(() => el.remove(), 4200);
+  }
+
+  async function api(base, path, options) {
+    const res = await fetch(trim(base) + path, options);
+    const text = await res.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+    if (!res.ok) throw { status: res.status, data };
+    return { status: res.status, data };
+  }
+
+  const money = n => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const when = s => s ? new Date(s).toLocaleString("en-GB", { hour12: false }) : "—";
+  const shortId = id => (id || "").toString().slice(0, 8);
+  const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  async function health(base, dot) {
+    try { await api(base, "/health"); $(dot).className = "dot up"; }
+    catch { $(dot).className = "dot down"; }
+  }
+
+  async function loadA() {
+    try {
+      const { data } = await api(store.baseA, "/api/products");
+      const rows = (data || []).map(p => `
+        <tr>
+          <td>${esc(p.name)}</td>
+          <td class="mono">${esc(p.sku)}</td>
+          <td class="num">${money(p.price)}</td>
+          <td class="num">${p.stock}</td>
+          <td class="num">${p.version}</td>
+          <td>
+            <button class="icon-btn" title="Edit" onclick='edit(${JSON.stringify(p)})'>✎</button>
+            <button class="icon-btn" title="Delete" onclick="del('${p.id}')">🗑</button>
+          </td>
+        </tr>`).join("");
+      $("listA").innerHTML = rows || `<tr><td colspan="6" class="empty">No products</td></tr>`;
+      $("dotA").className = "dot up";
+    } catch (e) {
+      $("dotA").className = "dot down";
+      $("listA").innerHTML = `<tr><td colspan="6" class="empty">Cannot reach Service A</td></tr>`;
+    }
+  }
+
+  async function loadB() {
+    try {
+      const { data } = await api(store.baseB, "/api/products");
+      const rows = (data || []).map(p => `
+        <tr>
+          <td>${esc(p.name)}</td>
+          <td class="mono">${esc(p.sku)}</td>
+          <td class="num">${money(p.price)}</td>
+          <td class="num">${p.stock}</td>
+          <td class="num">${p.version}</td>
+          <td class="num">${when(p.lastSyncedAt)}</td>
+        </tr>`).join("");
+      $("listB").innerHTML = rows || `<tr><td colspan="6" class="empty">No replicas yet</td></tr>`;
+      $("dotB").className = "dot up";
+    } catch (e) {
+      $("dotB").className = "dot down";
+      $("listB").innerHTML = `<tr><td colspan="6" class="empty">Cannot reach Service B</td></tr>`;
+    }
+  }
+
+  async function loadS() {
+    try {
+      const { data } = await api(store.baseB, "/api/sync-status");
+      const rows = (data || []).map(s => `
+        <tr>
+          <td class="mono" title="${s.aggregateId}">${shortId(s.aggregateId)}</td>
+          <td><span class="pill ${esc(s.status)}">${esc(s.status)}</span></td>
+          <td class="num">${s.version}</td>
+          <td class="num">${s.attempts}</td>
+          <td class="num">${when(s.updatedAt)}</td>
+        </tr>`).join("");
+      $("listS").innerHTML = rows || `<tr><td colspan="5" class="empty">No status yet</td></tr>`;
+    } catch (e) {
+      $("listS").innerHTML = `<tr><td colspan="5" class="empty">Cannot load status</td></tr>`;
+    }
+  }
+
+  function payload() {
+    return {
+      name: $("name").value.trim(),
+      sku: $("sku").value.trim(),
+      price: parseFloat($("price").value) || 0,
+      stock: parseInt($("stock").value) || 0,
+      description: $("description").value.trim() || null
+    };
+  }
+
+  function resetForm() {
+    $("form").reset();
+    $("editId").value = "";
+    $("submitBtn").textContent = "Add product";
+    $("cancelEdit").style.display = "none";
+  }
+
+  window.edit = function (p) {
+    $("editId").value = p.id;
+    $("name").value = p.name;
+    $("sku").value = p.sku;
+    $("price").value = p.price;
+    $("stock").value = p.stock;
+    $("description").value = p.description || "";
+    $("submitBtn").textContent = "Save changes";
+    $("cancelEdit").style.display = "inline-block";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  window.del = async function (id) {
+    if (!confirm("Delete this product?")) return;
+    try {
+      await api(store.baseA, "/api/products/" + id, { method: "DELETE" });
+      toast("Deleted", "HTTP 204", "ok");
+      loadA();
+    } catch (e) { toast("Delete failed", "HTTP " + (e.status || "?"), "err"); }
+  };
+
+  $("form").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const id = $("editId").value;
+    const body = JSON.stringify(payload());
+    const opts = { method: id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body };
+    const path = id ? "/api/products/" + id : "/api/products";
+    try {
+      const { status } = await api(store.baseA, path, opts);
+      toast(id ? "Updated" : "Created", "HTTP " + status, "ok");
+      resetForm();
+      loadA();
+    } catch (e) {
+      toast("Request failed", "HTTP " + (e.status || "?"), "err");
+    }
+  });
+
+  $("cancelEdit").addEventListener("click", resetForm);
+  $("refreshA").addEventListener("click", loadA);
+
+  $("saveCfg").addEventListener("click", () => {
+    store.baseA = trim($("baseA").value) || defaultA();
+    store.baseB = trim($("baseB").value) || defaultB();
+    toast("Settings saved", "", "ok");
+    refreshAll();
+  });
+
+  let timer = null;
+  function tick() { if ($("auto").checked) { loadB(); loadS(); } }
+  function startTimer() { clearInterval(timer); timer = setInterval(tick, 3000); }
+
+  function refreshAll() {
+    health(store.baseA, "dotA");
+    health(store.baseB, "dotB");
+    loadA(); loadB(); loadS();
+  }
+
+  $("baseA").value = store.baseA;
+  $("baseB").value = store.baseB;
+  refreshAll();
+  startTimer();
+</script>
+</body>
+</html>
