@@ -116,7 +116,7 @@ public sealed class SyncProcessor
         }
 
         record.LastEventId = message.EventId;
-        record.Version = message.Version;
+        record.Version = Math.Max(record.Version, message.Version);
         record.Status = SyncStatus.Processed;
         record.Attempts = 0;
         record.LastError = null;

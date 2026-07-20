@@ -40,6 +40,20 @@ public class OrderingTests
     }
 
     [Fact]
+    public async Task Stale_update_does_not_regress_status_version()
+    {
+        using var db = new ConsumerDatabase();
+        var aggregateId = Guid.NewGuid();
+
+        await new SyncProcessor(db.Create()).ProcessAsync(MessageFactory.Create(aggregateId, 5, SyncEventType.Updated), CancellationToken.None);
+        await new SyncProcessor(db.Create()).ProcessAsync(MessageFactory.Create(aggregateId, 2, SyncEventType.Updated), CancellationToken.None);
+
+        await using var verify = db.Create();
+        var status = Assert.Single(verify.SyncStatuses);
+        Assert.Equal(5, status.Version);
+    }
+
+    [Fact]
     public async Task Newer_update_overwrites_existing_replica()
     {
         using var db = new ConsumerDatabase();
