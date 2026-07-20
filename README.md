@@ -146,6 +146,14 @@ dotnet test tests/Sync.IntegrationTests
 Integration tests start RabbitMQ and MySQL with Testcontainers and cover the end-to-end sync,
 duplicate delivery and poison-message dead-lettering. They require a running Docker engine.
 
+## Deployment
+
+`.env` is intentionally not committed. When deploying (Coolify, CI, or any host that clones the
+repository), set the values referenced by `docker-compose.yml` in the platform's environment
+variable settings, using `.env.example` as the reference: `RABBITMQ_USER`, `RABBITMQ_PASS`,
+`SERVICEA_DB`, `SERVICEB_DB`. If these are left empty the services start with an empty connection
+string and fail. The MySQL host in those values must also be reachable from the deployment server.
+
 ## Configuration
 
 Settings come from `appsettings.json` and can be overridden by environment variables

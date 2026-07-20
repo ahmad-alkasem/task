@@ -16,8 +16,14 @@ public static class DatabaseInitializer
                 await db.Database.EnsureCreatedAsync(cancellationToken);
                 return;
             }
-            catch (Exception ex) when (attempt < 10)
+            catch (Exception ex)
             {
+                if (attempt == 10)
+                {
+                    logger.LogError(ex, "Database initialization failed after {Attempt} attempts; the service will start and keep retrying database operations", attempt);
+                    return;
+                }
+
                 logger.LogWarning(ex, "Database not ready (attempt {Attempt}), retrying", attempt);
                 await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
             }

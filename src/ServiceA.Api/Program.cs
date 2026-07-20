@@ -28,6 +28,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.MapControllers();
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
 await DatabaseInitializer.InitializeAsync(app.Services, logger);
