@@ -1,0 +1,50 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: crossapisync-rabbitmq
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  servicea:
+    build:
+      context: .
+      dockerfile: src/ServiceA.Api/Dockerfile
+    container_name: crossapisync-servicea
+    environment:
+      ConnectionStrings__ProductDb: ${SERVICEA_DB}
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__UserName: ${RABBITMQ_USER}
+      RabbitMq__Password: ${RABBITMQ_PASS}
+    ports:
+      - "5001:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  serviceb:
+    build:
+      context: .
+      dockerfile: src/ServiceB.Api/Dockerfile
+    container_name: crossapisync-serviceb
+    environment:
+      ConnectionStrings__SyncDb: ${SERVICEB_DB}
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__UserName: ${RABBITMQ_USER}
+      RabbitMq__Password: ${RABBITMQ_PASS}
+    ports:
+      - "5002:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
